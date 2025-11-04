@@ -1,11 +1,11 @@
+import base64
+import tempfile
+import os
 from flask import Flask, request, jsonify
+from datetime import datetime
 import pdfplumber
 import pandas as pd
 import re
-import os
-import requests
-from datetime import datetime
-import tempfile
 
 app = Flask(__name__)
 
@@ -16,36 +16,36 @@ def home():
 @app.route('/process', methods=['POST'])
 def process_file():
     data = request.get_json()
-    pdf_url = data.get("fileUrl")
+
     file_name = data.get("fileName", "unknown.pdf")
+    file_content = data.get("fileContent")  # base64-encoded PDF string
 
-    if not pdf_url:
-        return jsonify({"error": "Missing fileUrl"}), 400
+    if not file_content:
+        return jsonify({"error": "Missing fileContent"}), 400
 
-    # Create temp working folder
+    # Create a temporary file to save the uploaded PDF
     with tempfile.TemporaryDirectory() as tmpdir:
         pdf_path = os.path.join(tmpdir, file_name)
 
-        # Download file from OneDrive link
-        print(f"⬇️ Downloading {pdf_url}")
-        r = requests.get(pdf_url)
-        if r.status_code != 200:
-            return jsonify({"error": f"Failed to download file: {r.status_code}"}), 400
+        # Decode Base64 → binary PDF
+        try:
+            with open(pdf_path, "wb") as f:
+                f.write(base64.b64decode(file_content))
+        except Exception as e:
+            return jsonify({"error": f"Failed to decode base64 file: {e}"}), 400
 
-        with open(pdf_path, "wb") as f:
-            f.write(r.content)
-
-        # Extract info from the PDF
+        # Run your existing extraction logic
         extracted = extract_accommodation_data(pdf_path)
 
-        return jsonify({
-            "status": "success",
-            "records_found": len(extracted),
-            "data": extracted
-        })
+    return jsonify({
+        "status": "success",
+        "records_found": len(extracted),
+        "data": extracted
+    })
+
 
 def extract_accommodation_data(pdf_path):
-    """Your original extraction logic, refactored for reusability"""
+    """Your original extraction logic"""
     data = []
     reservation_no = None
     reservation_date = None
@@ -53,7 +53,6 @@ def extract_accommodation_data(pdf_path):
     with pdfplumber.open(pdf_path) as pdf:
         full_text = "\n".join(page.extract_text() for page in pdf.pages if page.extract_text())
 
-        # Extract Reservation Number and Date
         for line in full_text.splitlines():
             if "Reservation No:" in line:
                 reservation_no = line.split(":")[1].strip()
@@ -64,7 +63,6 @@ def extract_accommodation_data(pdf_path):
                 except ValueError:
                     reservation_date = "unknown"
 
-        # Extract RESEARCH CAMPS rows
         for line in full_text.splitlines():
             if line.startswith("RESEARCH CAMPS"):
                 match = re.search(
@@ -86,5 +84,8 @@ def extract_accommodation_data(pdf_path):
 
     return data
 
+# -------------------------
+# Start Flask server
+# -------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run(debug=True, host="0.0.0.0", port=5000)
