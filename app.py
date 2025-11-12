@@ -8,6 +8,13 @@ import re
 
 app = Flask(__name__)
 
+from flask import jsonify, request
+
+@app.route("/ping", methods=["GET"])
+def ping():
+    print("✅ Power Automate reached the app!")
+    return jsonify({"message": "pong"}), 200
+
 @app.route('/')
 def home():
     return "✅ Accommodation Extractor API running"
