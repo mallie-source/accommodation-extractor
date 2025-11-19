@@ -1,5 +1,5 @@
-flask
-pdfplumber
-pandas
-requests
-gunicorn
+Flask>=2.0
+pdfplumber>=0.7.5
+pillow>=9.0.0
+# optional OCR dependencies (only if you want OCR fallback)
+pytesseract>=0.3.10
